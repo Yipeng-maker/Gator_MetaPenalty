@@ -1,0 +1,18 @@
+Package: MetaPenalty
+Title: Implement a penalization approach to random-effects meta-analysis
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Yipeng",
+           family = "Wang",
+           role = c("aut", "cre"),
+           email = "yw17b@outlook.com")
+Description: Using this package to conduct the penalization method to random-effects meta-analysis, the generated results for the overall effect estimate and its corresponding 95% confidence interval are more conservative when the between-study variance improper inflate because the outliers appear or the publication bias exists.
+Depends: R (>= 3.6.0), meta, forestplot
+License: GPL-2
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

@@ -1,0 +1,93 @@
+---
+title: "An introduction to MetaPenalty package"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Penalty_meta}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+The **MetaPenalty** package is used to conduct a penalization approach in meta-analysis. It generates the results of the penalized method by tuning $\lambda$ (a tuning parameter) and the penalized method by tuning $\tau$ (the standard deviation among studies in a meta-analysis). Comparing the results of the penalization method with that of the random-effects model, estimates for the overall effect size and the corresponding 95% confidence interval are more conservative. Penalizing on the inflated between-study variance, $\tau^2$, resulted from potential outliers or publication bias can contribute to more robust estimates in meta-analyses.
+
+## Different functions and their usages
+There are nine functions with very different purposes in **MetaPenalty** package. In the following, a dataset of the meta-analysis by Bohren et al. (2017) consisting of 21 studies, which investigate the effect of continuous and one-to-one intrapartum support on spontaneous vaginal births, is used to illustrate the useages of these functions. 
+
+```{r setup}
+## Load the necessary packages
+library(MetaPenalty)
+suppressMessages(library(meta))
+suppressMessages(library(forestplot))
+
+## Load the example datasets
+data(Bohren)
+data(Adams)
+```
+
+The **forest_reverse_log()** produces a forest plot of a given meta-analysis. It summarise the point estimates and the 95% confindence interval for the overall effect size on the left column. This function is used when effects are binary outcomes on log scale: log odds ratios and log relative risks. Figure 1 shows the output of **forest_reverse_log()** using the example data. The odds ratio estimates with their 95% confidence interval in the bold text are the overall estimates of odds ratio coming from four models: the common-effect model (CE), the random-effects model (RE), the penaliztion method by tuning $\lambda$ (PRE($\lambda$)), and the penalization method by tuning $\tau$ (PRE($\tau$)).
+
+```{r, fig.width = 6.45, fig.height = 4.35, fig.align = "center", fig.cap = "Figure 1"}
+forest_reverse_log(Bohren$y, Bohren$s2,llimit = 0.25, ulimit = 16, 
+                   user_define_x_ticks = TRUE, x_ticks = c(0.25, 0.5, 1, 2, 4, 8, 16))
+```
+
+The **forest_original_effects()** produces a forest plot for a meta-analysis whose effects are reported directly (not on the log scale) with the corresponding within-study variances. Three types of effect sizes are concerned in this function: mean differences, standardized mean differences, and risk differences. Figure 2 using a dataset consisting of 32 studies where effects are mean differences. Comparing with Figure 1, the meaning of point estimates and 95% confidence intervals (CIs) are similar but the gray verticle line in forest plots are different. Because zero is the null value we concern when effects are absolute associations (e.g., the 95% CI incluing zero may indicate there is no significant difference between treatment and control when $\alpha = 0.05$.) and one is the null value to compare with when effects are relative associations.
+
+```{r, fig.width = 6.45, fig.height = 4.35, fig.align = "center", fig.cap = "Figure 2"}
+forest_original_effects(Adams$y, Adams$s2, adjust_font_size = -0.04, llimit = -6.5,
+                        ulimit = 36, user_define_x_ticks = TRUE, 
+                        x_ticks = c(-6.5, -3, 0, 3, 6.5, 10.5, 16, 21, 26, 31, 36))
+```
+
+The **metaoutliers.plot()** is used to detect potential outliers among studies in a meta-analysis under two settings: the common-effect setting and the random-effects setting. It is based on study-specific standardized residuals. Figuer 3 shows a detecting plot for potential outliers. The filled triangles represent standardized residuals obtained from the common-effect model, the unfilled dots represent standardized residuals obtained from the random-effects model. The plus signs (not appear in this example plot) represent truncated standardized residuals whose absolute values are greater than 5. In Figure 3, study 4 and 18 are potential outliers under both settings because their study-specific residuals are less than $-3$ or greater than $3$.
+
+```{r, fig.align = "center", fig.cap = "Figure 3"}
+metaoutliers.plot(Bohren$y, Bohren$s2)
+```
+
+The **metaml()** is used to compute the ML estimate of the between-study variance (i.e., $\tau^2$). For a meta-analysis by Bohren, the following code shows that the ML estimate of $\tau^2$ is 0.03. 
+
+```{r}
+metaml(Bohren$y, Bohren$s2)
+```
+
+The **determine.lambda()** returns candidate values of $\lambda$ beteween 0 and $\text{lam.c}*\lambda_{\text{max}}$, where $\lambda_\text{max}$ is the threshold value for $\lambda$. This value is important for the penalization method by tuning $\lambda$, because if $\lambda > \lambda_{\text{max}}$ then the corresponding $\tau^2$ estimate is identical to that of the random-effects model.
+
+```{r}
+lambda <- determine.lambda(Bohren$y, Bohren$s2, penalty = "tau2", n.lambda = 100, 
+                           lambda.scale = "log", tol = 10^(-10), lam.c = 1.2)
+round(lambda, digits = 3)
+```
+
+The **metapen.lambda()** compute the corresponding overall effect size estimates and the between-study variance estimates for a vector of $\lambda$, the results are showed in the following list.
+
+```{r}
+alist <- metapen.lambda(Bohren$y, Bohren$s2, penalty = "tau2", lambda = lambda, tol = 10^(-10))
+head(alist)
+```
+
+The **metapen.lambdas.cv()** is used to save values to visualize the cross-validation process of the penalization method by tuning $\lambda$. The second column $loss$ represent values of the loss function $\text{L}(\lambda)$ and the last column contains values of the between-study standard deviation ($\tau$).
+
+```{r}
+blist <- metapen.lambdas.cv(Bohren$y, Bohren$s2)$est
+head(blist)
+```
+
+The **metapen.tau()** produces results of the penealiztion method by tuning $\tau$. In the following list, $n.study$ is the number of studies of the given meta-analysis; $tau2.re$ is the estimate of the between-study variance from the random-effects model; $I2$ is the $I^2$ statistic estimate of the meta-analysis; $mu.fe$ is the overall effect estimate from the common-effect model, $se.fe$ is the corresponding standard error estimate; $mu.re$ is the overall effect estimate from the random-effects model, $se.re$ is the corresponding standard error estimate; tau2.cand (tau.cand) is a vector of candidate values of $\tau^2$ ($\tau$) that are considered in the penaliztion method by tuning $\tau$, $loss$ are the corresponding values of the loss function; $tau2.opt$ ($tau.opt$) is the estimated between-study variance (standard-deviation) where the smallest loss is achieved among all candidates; $mu.opt$ is the overall effect estimate of the penalization method by tuning $\tau$ and $se.opt$ is the corresponding estimate for standard error. The output of the **metapen.lamb()** is very similar to that of the **metapen.tau()** except the tuning parameter switching to $\lambda$, thus the detailed results of the **metapen.lamb()** are not showing here.   
+
+```{r}
+clist <- metapen.tau(Bohren$y, Bohren$s2)
+clist
+```
+
+
+
+
